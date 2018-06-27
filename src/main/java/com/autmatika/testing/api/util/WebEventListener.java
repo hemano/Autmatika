@@ -1,6 +1,7 @@
 package com.autmatika.testing.api.util;
 
 import org.openqa.selenium.By;
+import org.openqa.selenium.OutputType;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.WebElement;
 import org.openqa.selenium.support.events.WebDriverEventListener;
@@ -90,6 +91,16 @@ public class WebEventListener implements WebDriverEventListener {
         LogManager.getLogger().debug("Exception occured: " + error);
     }
 
+    @Override
+    public <X> void beforeGetScreenshotAs(OutputType<X> target) {
+
+    }
+
+    @Override
+    public <X> void afterGetScreenshotAs(OutputType<X> target, X screenshot) {
+
+    }
+
     public void beforeFindBy(By by, WebElement element, WebDriver driver) {
         LogManager.getLogger().debug("Trying to find Element By : " + by.toString());
     }
@@ -105,6 +116,16 @@ public class WebEventListener implements WebDriverEventListener {
     }
 
     public void afterScript(String script, WebDriver driver) {
+    }
+
+    @Override
+    public void beforeSwitchToWindow(String windowName, WebDriver driver) {
+
+    }
+
+    @Override
+    public void afterSwitchToWindow(String windowName, WebDriver driver) {
+
     }
 
 }

@@ -2,7 +2,6 @@ package com.autmatika.testing.api.util;
 
 import com.autmatika.testing.api.PreProcessFiles;
 import com.autmatika.testing.api.util.webdriver.WebDriverThread;
-import com.gargoylesoftware.htmlunit.ElementNotFoundException;
 import com.google.common.base.Function;
 import com.isomorphic.webdriver.ByScLocator;
 import org.hamcrest.Matcher;
@@ -14,7 +13,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Pattern;
 
 import static org.hamcrest.Matchers.*;
 
@@ -46,17 +44,6 @@ public class SeleniumHelper {
 
     public String getActiveFrame() {
         return activeFrame;
-    }
-
-    // variables to deal with conditional events
-    private List<ConditionalEvent.Event> conditionalEvent = null;
-
-    public void setConditionalEvent(ArrayList<ConditionalEvent.Event> conditionalEvent) {
-        this.conditionalEvent = conditionalEvent;
-    }
-
-    public List<ConditionalEvent.Event> getConditionalEvent() {
-        return conditionalEvent;
     }
 
     private final int numberOfAttemptToClick = 2;
@@ -477,58 +464,6 @@ public class SeleniumHelper {
         webelement.click();
     }
 
-    /**
-     * Method is used to handle specific events (JavaScript running, appearance of a text etc.) that may occur after click action.
-     *
-     * @param textToAppear text value that it may be required to wait for it's appearance
-     */
-    private void postClickCheck(String textToAppear) {
-
-        if (this.conditionalEvent == null) {
-            return;
-        }
-
-        for (ConditionalEvent.Event conditionalEvent : this.conditionalEvent) {
-            if (conditionalEvent.key.equalsIgnoreCase("WaitForElementToAppear")) {
-                waitForElement(conditionalEvent, numberOfAttemptToClick);
-            } else if (conditionalEvent.key.equalsIgnoreCase("WaitForJavaScriptToUpdate")) {
-                checkForJavaScriptToRun(conditionalEvent);
-            } else if (conditionalEvent.key.equalsIgnoreCase("WaitForElementToContainText")) {
-                waitForText(conditionalEvent, textToAppear);
-            } else if (conditionalEvent.key.equalsIgnoreCase("AcceptAlert")) {
-                acceptAlert(conditionalEvent);
-            }
-        }
-    }
-
-    /**
-     * The method is used to accept alert if this alert is expected
-     * and to fail test if alert is unexpected;
-     */
-    private void acceptAlert(ConditionalEvent.Event conditionalEvent) {
-        if (conditionalEvent.key.equals("AcceptAlert".toLowerCase())) {
-            waitForPopupToAppear();
-            final Pattern ACCEPTABLE_ALERT =
-                    Pattern.compile("^(Selecting a new template will delete all unsaved content. Do you want to proceed?)|" +
-                            "(Account Alert: SLA Information: .*)|" +
-                            "(Are you sure you want to remove this component?.*)$");
-            try {
-                Alert jsalert = driver.switchTo().alert();
-                String alertMsg = jsalert.getText();
-                java.util.regex.Matcher matcher = ACCEPTABLE_ALERT.matcher(alertMsg);
-                if (matcher.find()) {
-                    Reporter.log("\t\t-" + alertMsg + "\n" + " popup appeared");
-                    jsalert.accept();
-                    Reporter.log("Alert message found and accepted");
-                } else {
-                    Reporter.failNoScreenshot("Unexpected error occurred:" +
-                            "<pre><textarea>" + alertMsg + "</textarea></pre>");
-                }
-            } catch (NoAlertPresentException Ex) {
-                Reporter.log("No alert message found");
-            }
-        }
-    }
 
     /**
      * The method is used to wait until popup appears;
@@ -540,62 +475,6 @@ public class SeleniumHelper {
                 .ignoring(NoAlertPresentException.class)
                 .pollingEvery(1, TimeUnit.SECONDS)
                 .until(ExpectedConditions.alertIsPresent());
-    }
-
-    /**
-     * The method is used to wait while JS is running after interacting with a web-element;
-     */
-    private void checkForJavaScriptToRun(ConditionalEvent.Event conditionalEvent) {
-        if (conditionalEvent.key.equals("WaitForJavaScriptToUpdate".toLowerCase())) {
-            if (conditionalEvent.value.isEmpty()) {
-                JavaScriptHelper.waitForJavaScriptToRun(driver, secondsToWaitAtConditionalEvent);
-            } else {
-                try {
-                    By LocatorOfElementToBeUpdated = initElementByLocator(conditionalEvent.value);
-                    WebElement elementToBeUpdate = driver.findElement(LocatorOfElementToBeUpdated);
-                    JavaScriptHelper.waitForJavaScriptToRun(driver, elementToBeUpdate, secondsToWaitAtConditionalEvent);
-                } catch (Exception e) {
-                    LogManager.getLogger().warn("Some minor problems occurred when waiting for JS to update the web element.\n" +
-                            "Continue the test execution.");
-                }
-            }
-        }
-    }
-
-    /**
-     * The method is used to wait for specific text to occur in an element on a page
-     * OR specific field to contain any text
-     *
-     * @param text specific text value that must occur on the page.
-     *             Pass empty value if it's needed to wait for specific field to contain any text
-     */
-    private void waitForText(ConditionalEvent.Event conditionalEvent, String text) {
-        if (conditionalEvent.key.equals("WaitForElementToContainText".toLowerCase())) {
-            By locator = initElementByLocator(conditionalEvent.value);
-            if (text.isEmpty()) {
-                new FluentWait<WebDriver>(driver)
-                        .withTimeout(intLongTimeOut, TimeUnit.SECONDS)
-                        .ignoring(StaleElementReferenceException.class, ElementNotFoundException.class)
-                        .pollingEvery(2, TimeUnit.SECONDS)
-                        .until(new Function<WebDriver, Boolean>() {
-                            public Boolean apply(WebDriver d) {
-                                return !(driver.findElement(locator).getText().trim().isEmpty());
-                            }
-                        });
-            } else {
-                LogManager.getLogger().info("Waiting for '" + text + "' text value to appear in the field located " + locator.toString());
-                Reporter.log("Waiting for '" + text + "' text value to appear in the field located " + locator.toString());
-                new FluentWait<WebDriver>(driver)
-                        .withTimeout(intLongTimeOut, TimeUnit.SECONDS)
-                        .ignoring(StaleElementReferenceException.class, ElementNotFoundException.class)
-                        .pollingEvery(2, TimeUnit.SECONDS)
-                        .until(new Function<WebDriver, Boolean>() {
-                            public Boolean apply(WebDriver d) {
-                                return driver.findElement(locator).getText().trim().equals(text);
-                            }
-                        });
-            }
-        }
     }
 
     /**
@@ -616,37 +495,6 @@ public class SeleniumHelper {
         }
     }
 
-    /**
-     * The method is used to click on a web-element few times to force the appearance of an expected web-element
-     *
-     * @param attempts value is taken from 'numberOfAttemptToClick' class field
-     */
-    private void waitForElement(ConditionalEvent.Event conditionalEvent, int attempts) {
-        if (conditionalEvent.key.equals("WaitForElementToAppear".toLowerCase())) {
-
-            WebDriverWait wait = new WebDriverWait(driver, secondsToWaitAtConditionalEvent);
-            String elementToWaitForLocatorKey = conditionalEvent.value;
-            if (PageLocatorMatcher.isECVariableInXpath(elementToWaitForLocatorKey)) {
-                elementToWaitForLocatorKey = PageLocatorMatcher.updateXpath(elementToWaitForLocatorKey);
-            }
-            By locatorOfElementToWaitFor = initElementByLocator(elementToWaitForLocatorKey);
-
-            boolean elementIsShown = true;
-            while (attempts > 0) {
-                try {
-                    if (!elementIsShown) {
-                        wait.until(ExpectedConditions.elementToBeClickable(this.elementBy)).click();
-                    }
-                    wait.until(ExpectedConditions.visibilityOfElementLocated(locatorOfElementToWaitFor));
-                    break;
-                } catch (Exception e) {
-                    LogManager.getLogger().warn("Attempting to click again.");
-                    elementIsShown = false;
-                    attempts--;
-                }
-            }
-        }
-    }
 
     /**
      * Action to set text into a field on a web page

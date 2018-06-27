@@ -18,6 +18,7 @@ import org.openqa.selenium.safari.SafariDriver;
 
 import java.io.File;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -286,38 +287,6 @@ public enum DriverType implements DriverSetup {
 
         }
     },
-    FIREFOX_LOCAL {
-        public DesiredCapabilities getDesiredCapabilities() {
-            DesiredCapabilities capabilities =
-                    DesiredCapabilities.firefox();
-            return capabilities;
-        }
-
-        public WebDriver getWebDriverObject(DesiredCapabilities capabilities) {
-            FirefoxProfile profile = new FirefoxProfile();
-
-            try {
-
-                configureGecko();
-
-                String ext = "extensions.firebug.";
-                String ext1 = "extensions.firepath.";
-
-                profile.setPreference(ext + "currentVersion", "2.0.16");
-                profile.setPreference(ext1 + "currentVersion", "0.9.7");
-                profile.setPreference(ext + "allPagesActivation", "on");
-                profile.setPreference(ext + "defaultPanelName", "net");
-                profile.setPreference(ext + "net.enableSites", true);
-
-                WebDriver firefox = new FirefoxDriver(profile);
-                firefox.manage().deleteAllCookies();
-                return firefox;
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            return new FirefoxDriver(capabilities);
-        }
-    },
     IE {
         public DesiredCapabilities getDesiredCapabilities() {
 
@@ -353,6 +322,63 @@ public enum DriverType implements DriverSetup {
 
         public WebDriver getWebDriverObject(DesiredCapabilities capabilities) {
             return new SafariDriver(capabilities);
+        }
+    },
+    DOCKER_CHROME {
+        public DesiredCapabilities getDesiredCapabilities() {
+            //downloads folder to automatically save the downloaded files
+            File folder = new File("downloads");
+            folder.mkdir();
+
+            DesiredCapabilities capabilities = new DesiredCapabilities();
+            capabilities.setBrowserName("chrome");
+
+//            ChromeOptions options = new ChromeOptions();
+//            Map<String, Object> prefs = new HashMap<String, Object>();
+//            prefs.put("credentials_enable_service", false);
+//            prefs.put("profile.password_manager_enabled", false);
+//
+//            options.setExperimentalOption("prefs", prefs);
+//            options.addArguments("--test-type");
+//            options.addArguments("--start-maximized");
+//            options.addArguments("--disable-save-password-bubble");
+//
+//            capabilities.setCapability("chrome.switches", Arrays.asList("--no-default-browser-check"));
+//            HashMap<String, Object> chromePreferences = new HashMap<>();
+//            chromePreferences.put("profile.password_manager_enabled", "false");
+//            chromePreferences.put("credentials_enable_service", "false");
+//            chromePreferences.put("profile.default_content_settings.popups", 0);
+//            chromePreferences.put("download.default_directory", folder.getAbsolutePath());
+//            capabilities.setCapability("chrome.prefs", chromePreferences);
+//
+//            capabilities.setCapability(ChromeOptions.CAPABILITY, options);
+//            capabilities.setCapability(CapabilityType.ACCEPT_SSL_CERTS, true);
+//            capabilities.setCapability(ChromeOptions.CAPABILITY, options);
+
+            //configure capability with chrome version
+            String ch_version = determineEffectivePropertyValue("ch_version");
+            if (null == ch_version) {
+                capabilities.setVersion("67");
+            } else {
+                capabilities.setVersion(ch_version);
+            }
+
+            return capabilities;
+        }
+
+        public WebDriver getWebDriverObject(DesiredCapabilities capabilities) {
+            final String URL = getGridURL();
+
+            try {
+                RemoteWebDriver driver = new RemoteWebDriver(
+                        URI.create("http://localhost:4444/wd/hub").toURL(),
+                        capabilities);
+
+                return driver;
+            } catch (MalformedURLException e) {
+                e.printStackTrace();
+            }
+            return null;
         }
     };
 
@@ -435,5 +461,9 @@ public enum DriverType implements DriverSetup {
         } else {
             return propertiesHelper.getProperties().getProperty(key);
         }
+    }
+
+    public String getGridURL(){
+        return new PropertiesHelper().getProperties().getProperty("selenium_grid_url");
     }
 }
